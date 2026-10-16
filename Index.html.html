@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ElectroRead PH - Mobile Meter Reader</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at top right, #0f172a, #020617);
+    }
+    /* Hide scrollbars for a clean app feel */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Simulated Mobile Device Styling */
+    .phone-container {
+      width: 375px;
+      height: 812px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      border: 12px solid #1e293b;
+      border-radius: 40px;
+      overflow: hidden;
+      position: relative;
+    }
+    /* Notch */
+    .phone-notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 150px;
+      height: 25px;
+      background-color: #1e293b;
+      border-bottom-left-radius: 18px;
+      border-bottom-right-radius: 18px;
+      z-index: 50;
+    }
+    /* Live Scanning Laser Line Animation */
+    @keyframes laser {
+      0% { top: 15%; }
+      50% { top: 85%; }
+      100% { top: 15%; }
+    }
+    .laser-line {
+      animation: laser 3s infinite linear;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+  <!-- Desktop Intro Helper (Hidden on smaller screens) -->
+  <div class="hidden lg:flex flex-col items-center mb-6 text-center text-slate-300 max-w-lg">
+    <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">
+      ElectroRead PH
+    </h1>
+    <p class="text-sm text-slate-400">
+      Mobile Utility Meter Reading Software. Click around the simulated smartphone below to test the login, subscriber database, and live-calculation OCR scanner.
+    </p>
+  </div>
+
+  <!-- Mobile Container Wrapper -->
+  <div class="phone-container bg-slate-900 text-slate-100 flex flex-col relative">
+    
+    <!-- Phone Notch & Status Bar -->
+    <div class="phone-notch"></div>
+    <div class="h-10 bg-slate-950 flex justify-between items-center px-6 pt-2 text-xs font-semibold text-slate-400 select-none z-40">
+      <span id="phone-time">09:41</span>
+      <div class="flex items-center space-x-1.5">
+        <i class="fas fa-signal"></i>
+        <span class="text-[10px]">5G</span>
+        <i class="fas fa-wifi"></i>
+        <i class="fas fa-battery-three-quarters text-emerald-400"></i>
+      </div>
+    </div>
+
+    <!-- MAIN APP SCREEN AREA (Scrollable & Dynamic Views) -->
+    <div id="app-screen" class="flex-1 overflow-y-auto no-scrollbar flex flex-col relative pb-6">
+      
+      <!-- ================= VIEW 1: LOGIN SCREEN ================= -->
+      <div id="view-login" class="flex-1 flex flex-col justify-between px-6 py-8">
+        <div class="flex flex-col items-center mt-8 text-center">
+          <div class="w-20 h-20 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/20 mb-4">
+            <i class="fas fa-bolt text-4xl text-white"></i>
+          </div>
+          <h2 class="text-2xl font-bold tracking-tight">ElectroRead <span class="text-cyan-400">PH</span></h2>
+          <p class="text-xs text-slate-400 mt-1">Aboitiz & Neo Field Companion</p>
+        </div>
+
+        <div class="space-y-4 my-auto">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Reader Credentials</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                <i class="fas fa-user-check"></i>
+              </span>
+              <input type="text" id="login-id" value="READER-2026" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500 transition-colors" placeholder="Enter Field Agent ID">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Access Pin</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                <i class="fas fa-lock"></i>
+              </span>
+              <input type="password" id="login-pin" value="12345" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500 transition-colors" placeholder="•••••">
+            </div>
+          </div>
+
+          <div id="login-error" class="text-rose-500 text-xs hidden flex items-center space-x-1">
+            <i class="fas fa-circle-exclamation"></i>
+            <span>Invalid ID or Access PIN. Please try again.</span>
+          </div>
+
+          <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3.5 rounded-xl shadow-md shadow-cyan-500/10 transition duration-200">
+            Secure Sign In
+          </button>
+        </div>
+
+        <div class="text-center">
+          <p class="text-[10px] text-slate-500">Powered by Webcast Technologies Inc.</p>
+          <p class="text-[9px] text-slate-600">v1.0.0 • NCR</p>
+        </div>
+      </div>
+
+      <!-- ================= VIEW 2: SUBSCRIBER LIST ================= -->
+      <div id="view-list" class="hidden flex-1 flex flex-col px-4 pt-4">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+              <i class="fas fa-bolt text-cyan-400 text-sm"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-sm" id="user-badge-name">Reader-2026</h3>
+              <p class="text-[10px] text-slate-400 font-semibold text-cyan-400">NEO 3 Buildings</p>
+            </div>
+          </div>
+          <button onclick="logout()" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition">
+            <i class="fas fa-sign-out-alt"></i>
+          </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="relative mb-4">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+            <i class="fas fa-search"></i>
+          </span>
+          <input type="text" id="search-bar" oninput="filterSubscribers()" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 pl-9 pr-4 text-xs focus:outline-none focus:border-cyan-500 placeholder-slate-500" placeholder="Search by name or meter ID...">
+        </div>
+
+        <!-- Status Filter Tabs -->
+        <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg mb-4 text-center text-xs">
+          <button onclick="setFilter('all')" id="filter-all" class="py-1 rounded font-semibold bg-cyan-600 text-white transition">All</button>
+          <button onclick="setFilter('pending')" id="filter-pending" class="py-1 rounded font-semibold text-slate-400 hover:text-white transition">Pending</button>
+          <button onclick="setFilter('completed')" id="filter-completed" class="py-1 rounded font-semibold text-slate-400 hover:text-white transition">Done</button>
+        </div>
+
+        <!-- Subscriber List Dynamic Container -->
+        <div class="flex-1 space-y-3 overflow-y-auto no-scrollbar pb-10" id="subscriber-list-container">
+          <!-- Dynamic cards injected here -->
+        </div>
+      </div>
+
+      <!-- ================= VIEW 3: SUBSCRIBER DETAIL ================= -->
+      <div id="view-detail" class="hidden flex-1 flex flex-col px-4 pt-4">
+        <!-- Back Button & Header -->
+        <div class="flex items-center justify-between mb-4">
+          <button onclick="switchView('view-list')" class="flex items-center space-x-1.5 text-slate-400 hover:text-white text-xs transition">
+            <i class="fas fa-chevron-left"></i>
+            <span>Back to List</span>
+          </button>
+          <span class="text-[10px] px-2 py-0.5 bg-slate-800 border border-slate-700 rounded-full text-slate-400" id="detail-route-code">Sector A-12</span>
+        </div>
+
+        <!-- Profile Card -->
+        <div class="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl p-4 shadow-xl mb-4 relative overflow-hidden">
+          <div class="absolute -right-4 -bottom-4 opacity-5 text-8xl">
+            <i class="fas fa-file-invoice"></i>
+          </div>
+          <div class="flex justify-between items-start">
+            <div>
+              <span id="detail-status-badge" class="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full mb-2">Pending</span>
+              <h4 id="detail-name" class="text-lg font-bold text-white">Juan Dela Cruz</h4>
+              <p class="text-xs text-slate-400 flex items-center space-x-1 mt-0.5">
+                <i class="fas fa-hashtag text-[10px]"></i>
+                <span id="detail-meter-id">MTR-90812-PH</span>
+              </p>
+            </div>
+            <div class="w-10 h-10 bg-slate-700/50 rounded-xl flex items-center justify-center text-slate-300">
+              <i class="fas fa-user-circle text-2xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Previous Billing Details Box -->
+        <div class="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 space-y-3 mb-4">
+          <h5 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Previous Billing Record</h5>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">Previous Reading</span>
+              <span class="text-sm font-bold text-slate-200" id="detail-prev-reading">3,124 kWh</span>
+            </div>
+            <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">Reading Date</span>
+              <span class="text-xs font-semibold text-slate-200" id="detail-prev-date">May 12, 2026</span>
+            </div>
+            <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 col-span-2">
+              <span class="text-[10px] text-slate-400 block">Previous Month Charge (Est.)</span>
+              <span class="text-sm font-extrabold text-amber-500" id="detail-prev-cost">₱3,421.50</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Current Reading Slot (Updates after OCR) -->
+        <div class="bg-cyan-950/20 rounded-2xl p-4 border border-cyan-500/20 space-y-3 mb-4" id="current-reading-box">
+          <div class="flex justify-between items-center">
+            <h5 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Current Reading Information</h5>
+            <span class="text-[10px] text-slate-400" id="detail-current-date-header">--</span>
+          </div>
+
+          <div id="no-reading-placeholder" class="text-center py-4 text-slate-500 text-xs flex flex-col items-center justify-center space-y-2">
+            <i class="fas fa-camera text-xl opacity-40"></i>
+            <p>No current reading captured yet for this cycle.</p>
+          </div>
+
+          <div id="reading-summary" class="hidden grid grid-cols-2 gap-3 transition duration-300">
+            <div class="bg-cyan-950/40 p-2.5 rounded-xl border border-cyan-500/30">
+              <span class="text-[10px] text-cyan-400 block">Current Reading</span>
+              <span class="text-sm font-bold text-white" id="summary-curr-reading">-- kWh</span>
+            </div>
+            <div class="bg-cyan-950/40 p-2.5 rounded-xl border border-cyan-500/30">
+              <span class="text-[10px] text-cyan-400 block">Net Consumption</span>
+              <span class="text-sm font-bold text-white" id="summary-consumption">-- kWh</span>
+            </div>
+            <div class="bg-emerald-950/30 p-3 rounded-xl border border-emerald-500/30 col-span-2 flex justify-between items-center">
+              <div>
+                <span class="text-[10px] text-emerald-400 block">Estimated Bill Amount</span>
+                <span class="text-lg font-black text-emerald-400" id="summary-bill-amount">₱0.00</span>
+              </div>
+              <div class="text-[9px] text-slate-400 text-right">
+                <span>Rate: ₱10.25/kWh</span><br>
+                <span>Incl. taxes & subsidies</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= DAILY CONSUMPTION RECORD LOGS ================= -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 mb-6">
+          <div class="flex justify-between items-center">
+            <div>
+              <h5 class="text-xs font-extrabold uppercase tracking-wider text-slate-300">Daily Readings Log</h5>
+              <p class="text-[9px] text-slate-500">Track and log sub-meter trends</p>
+            </div>
+            <button onclick="openScanner('daily')" class="bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-400 text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1 transition duration-150">
+              <i class="fas fa-plus"></i>
+              <span>Add Record</span>
+            </button>
+          </div>
+
+          <!-- Daily logs container dynamically populated -->
+          <div id="daily-readings-list" class="space-y-2 max-h-[140px] overflow-y-auto no-scrollbar">
+            <!-- Dynamic list items added here -->
+          </div>
+        </div>
+
+        <!-- SCAN / RESET ACTION BUTTON -->
+        <div class="mt-auto space-y-2">
+          <button id="scan-trigger-btn" onclick="openScanner()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-cyan-500/20 flex items-center justify-center space-x-2 transition">
+            <i class="fas fa-expand"></i>
+            <span>Scan Electric Meter</span>
+          </button>
+          
+          <button id="submit-reading-btn" onclick="submitCurrentReading()" class="hidden w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/10 flex items-center justify-center space-x-2 transition">
+            <i class="fas fa-check-circle"></i>
+            <span>Finalize & Submit Bill</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ================= VIEW 4: OCR CAMERA SCANNER ================= -->
+      <div id="view-scanner" class="hidden absolute inset-0 bg-slate-950 flex flex-col z-50">
+        <!-- Close Scanner -->
+        <button onclick="closeScanner()" class="absolute top-12 left-4 z-50 bg-slate-900/80 p-2.5 rounded-full text-white hover:bg-slate-800 transition">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+
+        <!-- Simulated Camera Viewfinder -->
+        <div class="relative flex-1 flex flex-col items-center justify-center overflow-hidden">
+          
+          <!-- Real Camera Video Element -->
+          <video id="camera-feed" class="absolute inset-0 w-full h-full object-cover opacity-60" autoplay playsinline></video>
+          
+          <!-- Fallback Dynamic Graphics when Camera denied/unavailable -->
+          <div id="camera-fallback" class="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-center p-6 space-y-4">
+            <div class="relative w-48 h-20 bg-slate-950 rounded-xl border border-slate-700 flex items-center justify-center overflow-hidden">
+              <div class="grid grid-cols-5 gap-1.5 px-3">
+                <span class="w-7 h-10 bg-slate-800 text-cyan-400 font-mono font-bold text-lg flex items-center justify-center rounded">0</span>
+                <span class="w-7 h-10 bg-slate-800 text-cyan-400 font-mono font-bold text-lg flex items-center justify-center rounded">4</span>
+                <span class="w-7 h-10 bg-slate-800 text-cyan-400 font-mono font-bold text-lg flex items-center justify-center rounded">2</span>
+                <span class="w-7 h-10 bg-slate-800 text-cyan-400 font-mono font-bold text-lg flex items-center justify-center rounded">8</span>
+                <span class="w-7 h-10 bg-slate-800 text-cyan-400 font-mono font-bold text-lg flex items-center justify-center rounded">1</span>
+              </div>
+            </div>
+            <p class="text-xs text-slate-400 max-w-xs">
+              Simulating scanner interface. (Camera stream fallback active/simulated).
+            </p>
+          </div>
+
+          <!-- HUD Overlays -->
+          <div class="absolute inset-x-0 top-16 text-center z-10">
+            <span class="bg-black/50 backdrop-blur-sm text-[10px] text-cyan-400 font-mono px-3 py-1 rounded-full border border-cyan-500/30 uppercase tracking-widest">
+              OCR by Google Vision
+            </span>
+            <p class="text-[11px] text-slate-300 mt-2 px-10">Align the glass dials or electronic LCD display within the brackets.</p>
+          </div>
+
+          <!-- Framing / Bounding Box Grid -->
+          <div class="relative w-80 h-32 border-2 border-cyan-500 rounded-2xl flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)] z-10 bg-black/20">
+            <!-- Corner Brackets -->
+            <div class="absolute top-2 left-2 w-4 h-4 border-t-4 border-l-4 border-cyan-400 rounded-tl"></div>
+            <div class="absolute top-2 right-2 w-4 h-4 border-t-4 border-r-4 border-cyan-400 rounded-tr"></div>
+            <div class="absolute bottom-2 left-2 w-4 h-4 border-b-4 border-l-4 border-cyan-400 rounded-bl"></div>
+            <div class="absolute bottom-2 right-2 w-4 h-4 border-b-4 border-r-4 border-cyan-400 rounded-br"></div>
+
+            <!-- Red Laser Line -->
+            <div class="absolute left-0 right-0 h-0.5 bg-cyan-400 shadow-[0_0_10px_#22d3ee] laser-line"></div>
+
+            <!-- Simulated OCR Target digits -->
+            <div class="flex items-center space-x-1.5 z-20">
+              <span class="text-3xl font-mono font-extrabold text-white bg-slate-950/80 px-2.5 py-3 rounded-lg border border-slate-800 shadow shadow-cyan-400/10" id="ocr-digit-1">0</span>
+              <span class="text-3xl font-mono font-extrabold text-white bg-slate-950/80 px-2.5 py-3 rounded-lg border border-slate-800 shadow" id="ocr-digit-2">0</span>
+              <span class="text-3xl font-mono font-extrabold text-white bg-slate-950/80 px-2.5 py-3 rounded-lg border border-slate-800 shadow" id="ocr-digit-3">0</span>
+              <span class="text-3xl font-mono font-extrabold text-white bg-slate-950/80 px-2.5 py-3 rounded-lg border border-slate-800 shadow" id="ocr-digit-4">0</span>
+              <span class="text-3xl font-mono font-extrabold text-white bg-slate-950/80 px-2.5 py-3 rounded-lg border border-slate-800 shadow" id="ocr-digit-5">0</span>
+            </div>
+          </div>
+
+          <!-- Bottom controls -->
+          <div class="absolute bottom-6 inset-x-0 flex flex-col items-center space-y-4 px-6 z-10">
+            <!-- Simulated Signal/Stability Indicators -->
+            <div class="flex items-center space-x-6 text-xs text-slate-400 bg-black/60 px-4 py-2 rounded-xl backdrop-blur-sm">
+              <span class="flex items-center space-x-1.5">
+                <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                <span>Ready</span>
+              </span>
+              <span>•</span>
+              <span class="flex items-center space-x-1">
+                <i class="fas fa-bolt text-amber-400"></i>
+                <span id="prev-target-label">Prev: 3124 kWh</span>
+              </span>
+            </div>
+
+            <div class="flex items-center space-x-4 w-full">
+              <!-- Simulate Manual Override Dial -->
+              <div class="flex-1">
+                <button onclick="triggerSimulatedScan()" class="w-full bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-extrabold py-3.5 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-cyan-400/20">
+                  <i class="fas fa-microchip"></i>
+                  <span>Scan the Meter</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="w-full bg-slate-900/80 border border-slate-700/80 p-3 rounded-xl backdrop-blur font-sans">
+              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Manual Override Input (kWh)</label>
+              <div class="flex space-x-2">
+                <input type="number" id="manual-ocr-input" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500" placeholder="e.g. 3250">
+                <button onclick="applyManualReading()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Custom Modal Popup System (Alert substitute) -->
+    <div id="custom-modal" class="hidden absolute inset-0 bg-black/60 flex items-center justify-center p-6 z-50">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-[320px] shadow-2xl text-center transform scale-95 transition-transform duration-200">
+        <div id="modal-icon-container" class="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+          <i class="fas fa-info-circle"></i>
+        </div>
+        <h4 id="modal-title" class="text-lg font-bold text-white mb-2">Notification</h4>
+        <p id="modal-message" class="text-xs text-slate-400 mb-6 leading-relaxed">System notification message content.</p>
+        <button id="modal-btn" onclick="closeModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-sm transition">
+          OK
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ================= SEED DATA =================
+    const subscribers = [
+      {
+        id: "MTR-2026-90812",
+        name: "Maria Consolacion Santos",
+        prevReading: 3124,
+        prevDate: "May 12, 2026",
+        prevConsumption: 312, // kWh
+        status: "pending",
+        currentReading: null,
+        currentReadingDate: null,
+        sector: "Laguna Sector 3A",
+        routeCode: "Sector A-12",
+        dailyReadings: [
+          { timestamp: "Jun 12, 2026, 08:30 AM", reading: 3132 },
+          { timestamp: "Jun 13, 2026, 09:15 AM", reading: 3141 },
+          { timestamp: "Jun 14, 2026, 08:00 AM", reading: 3150 }
+        ]
+      },
+      {
+        id: "MTR-2026-10482",
+        name: "Juanito 'Cardo' Dalisay",
+        prevReading: 4890,
+        prevDate: "May 10, 2026",
+        prevConsumption: 420,
+        status: "pending",
+        currentReading: null,
+        currentReadingDate: null,
+        sector: "Laguna Sector 3A",
+        routeCode: "Sector B-04",
+        dailyReadings: [
+          { timestamp: "Jun 14, 2026, 10:10 AM", reading: 4905 }
+        ]
+      },
+      {
+        id: "MTR-2026-77812",
+        name: "Antonio Luna Villa-Real",
+        prevReading: 12540,
+        prevDate: "May 11, 2026",
+        prevConsumption: 580,
+        status: "completed",
+        currentReading: 12890,
+        currentReadingDate: "Jun 11, 2026",
+        sector: "Laguna Sector 3A",
+        routeCode: "Sector A-12",
+        dailyReadings: [
+          { timestamp: "Jun 09, 2026, 08:30 AM", reading: 12620 },
+          { timestamp: "Jun 10, 2026, 08:45 AM", reading: 12645 }
+        ]
+      },
+      {
+        id: "MTR-2026-44219",
+        name: "Catriona Elisa Gray",
+        prevReading: 8210,
+        prevDate: "May 12, 2026",
+        prevConsumption: 245,
+        status: "pending",
+        currentReading: null,
+        currentReadingDate: null,
+        sector: "Laguna Sector 3A",
+        routeCode: "Sector C-10",
+        dailyReadings: []
+      },
+      {
+        id: "MTR-2026-55610",
+        name: "Manuel Quezon Macapagal",
+        prevReading: 5120,
+        prevDate: "May 12, 2026",
+        prevConsumption: 198,
+        status: "completed",
+        currentReading: 5312,
+        currentReadingDate: "Jun 11, 2026",
+        sector: "Laguna Sector 3A",
+        routeCode: "Sector B-04",
+        dailyReadings: [
+          { timestamp: "Jun 10, 2026, 07:15 AM", reading: 5210 }
+        ]
+      }
+    ];
+
+    // Rates inside the PH region (based on typical Meralco values per kWh)
+    const ELECTRIC_RATE_PER_KWH = 10.25;
+
+    // ================= APP STATE =================
+    let currentFilter = 'all';
+    let activeSubscriber = null;
+    let cameraStream = null;
+    let scannerMode = 'monthly'; // 'monthly' or 'daily'
+
+    // ================= INITIALIZATION =================
+    document.addEventListener("DOMContentLoaded", () => {
+      updateTime();
+      setInterval(updateTime, 1000);
+      renderSubscribers();
+    });
+
+    function updateTime() {
+      const now = new Date();
+      let hours = now.getHours();
+      let minutes = now.getMinutes();
+      hours = hours < 10 ? '0' + hours : hours;
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+      document.getElementById('phone-time').innerText = `${hours}:${minutes}`;
+    }
+
+    // ================= AUTHENTICATION =================
+    function handleLogin() {
+      const idInput = document.getElementById('login-id').value.trim();
+      const pinInput = document.getElementById('login-pin').value.trim();
+      const errBox = document.getElementById('login-error');
+
+      if (idInput === "READER-2026" && pinInput === "12345") {
+        errBox.classList.add('hidden');
+        document.getElementById('user-badge-name').innerText = idInput;
+        showModal(
+          "Access Granted", 
+          "Welcome to ElectroRead Field Companion. NEO 3 tenants list loaded successfully.", 
+          "fa-circle-check", 
+          "text-emerald-500",
+          () => {
+            switchView('view-list');
+          }
+        );
+      } else {
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    function logout() {
+      switchView('view-login');
+      document.getElementById('login-pin').value = '';
+    }
+
+    // ================= NAVIGATION =================
+    function switchView(viewId) {
+      // Hide all main views
+      document.getElementById('view-login').classList.add('hidden');
+      document.getElementById('view-list').classList.add('hidden');
+      document.getElementById('view-detail').classList.add('hidden');
+      document.getElementById('view-scanner').classList.add('hidden');
+
+      // Show the requested view
+      document.getElementById(viewId).classList.remove('hidden');
+    }
+
+    // ================= SUBSCRIBER DIRECTORY =================
+    function renderSubscribers() {
+      const listContainer = document.getElementById('subscriber-list-container');
+      const searchQuery = document.getElementById('search-bar').value.toLowerCase();
+      
+      listContainer.innerHTML = '';
+
+      const filtered = subscribers.filter(sub => {
+        const matchesSearch = sub.name.toLowerCase().includes(searchQuery) || sub.id.toLowerCase().includes(searchQuery);
+        if (currentFilter === 'all') return matchesSearch;
+        return matchesSearch && sub.status === currentFilter;
+      });
+
+      if (filtered.length === 0) {
+        listContainer.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-10 text-slate-500">
+            <i class="fas fa-folder-open text-3xl mb-2"></i>
+            <p class="text-xs">No matching subscribers found.</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(sub => {
+        const isDone = sub.status === 'completed';
+        const statusColor = isDone ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        
+        const card = document.createElement('div');
+        card.className = "bg-slate-800/80 border border-slate-700/60 rounded-xl p-4 cursor-pointer hover:border-cyan-500/50 hover:bg-slate-800 transition active:scale-95 duration-150 relative";
+        card.onclick = () => viewSubscriberDetails(sub.id);
+        
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div class="space-y-1">
+              <span class="text-[9px] font-bold px-2 py-0.5 border rounded-full ${statusColor}">
+                ${sub.status.toUpperCase()}
+              </span>
+              <h4 class="font-bold text-sm text-white mt-1.5">${sub.name}</h4>
+              <div class="flex items-center space-x-1 text-[11px] text-slate-400">
+                <i class="fas fa-barcode text-[9px]"></i>
+                <span>Meter: ${sub.id}</span>
+              </div>
+            </div>
+            <div class="flex flex-col items-end justify-between h-full space-y-4">
+              <i class="fas fa-chevron-right text-slate-500 text-xs mt-1"></i>
+              ${isDone ? `<span class="text-[10px] text-slate-400 font-semibold bg-slate-900/80 px-2 py-1 rounded border border-slate-700/50">${sub.currentReading} kWh</span>` : ''}
+            </div>
+          </div>
+        `;
+        listContainer.appendChild(card);
+      });
+    }
+
+    function setFilter(filterType) {
+      currentFilter = filterType;
+      ['all', 'pending', 'completed'].forEach(type => {
+        const btn = document.getElementById(`filter-${type}`);
+        if (type === filterType) {
+          btn.className = "py-1 rounded font-semibold bg-cyan-600 text-white transition text-xs";
+        } else {
+          btn.className = "py-1 rounded font-semibold text-slate-400 hover:text-white transition text-xs";
+        }
+      });
+      renderSubscribers();
+    }
+
+    function filterSubscribers() {
+      renderSubscribers();
+    }
+
+    // ================= SUBSCRIBER DETAIL ACTION =================
+    function viewSubscriberDetails(subId) {
+      const sub = subscribers.find(s => s.id === subId);
+      if (!sub) return;
+      activeSubscriber = sub;
+
+      // Update basic fields
+      document.getElementById('detail-name').innerText = sub.name;
+      document.getElementById('detail-meter-id').innerText = sub.id;
+      document.getElementById('detail-prev-reading').innerText = `${sub.prevReading.toLocaleString()} kWh`;
+      document.getElementById('detail-prev-date').innerText = sub.prevDate;
+      
+      const prevCost = sub.prevConsumption * ELECTRIC_RATE_PER_KWH;
+      document.getElementById('detail-prev-cost').innerText = `₱${prevCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      
+      document.getElementById('detail-route-code').innerText = sub.routeCode;
+
+      // Render daily logs list
+      renderDailyReadings();
+
+      // Reset Scanner/Trigger buttons
+      const statusBadge = document.getElementById('detail-status-badge');
+      if (sub.status === 'completed') {
+        statusBadge.innerText = 'COMPLETED';
+        statusBadge.className = "inline-block text-[9px] font-bold px-2 py-0.5 rounded-full mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        document.getElementById('scan-trigger-btn').classList.add('hidden');
+        document.getElementById('submit-reading-btn').classList.add('hidden');
+        
+        // Show already captured data
+        displayCalculation(sub.currentReading);
+      } else {
+        statusBadge.innerText = 'PENDING';
+        statusBadge.className = "inline-block text-[9px] font-bold px-2 py-0.5 rounded-full mb-2 bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        document.getElementById('scan-trigger-btn').classList.remove('hidden');
+        document.getElementById('submit-reading-btn').classList.add('hidden');
+        
+        // Hide calculation block, show scanning prompt
+        document.getElementById('no-reading-placeholder').classList.remove('hidden');
+        document.getElementById('reading-summary').classList.add('hidden');
+      }
+
+      switchView('view-detail');
+    }
+
+    // ================= DAILY READINGS HANDLERS =================
+    function renderDailyReadings() {
+      const container = document.getElementById('daily-readings-list');
+      container.innerHTML = '';
+
+      if (!activeSubscriber.dailyReadings || activeSubscriber.dailyReadings.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-4 text-slate-500 text-[11px] flex flex-col items-center justify-center space-y-1">
+            <i class="far fa-calendar-alt text-lg opacity-40"></i>
+            <p>No daily sub-meter logs recorded for this subscriber.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Sort logs descending so the latest records appear at the top
+      const sortedLogs = [...activeSubscriber.dailyReadings].reverse();
+
+      sortedLogs.forEach(log => {
+        const item = document.createElement('div');
+        item.className = "bg-slate-950/60 border border-slate-800/80 p-2.5 rounded-xl flex justify-between items-center transition";
+        item.innerHTML = `
+          <div class="flex items-center space-x-2.5">
+            <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-cyan-400">
+              <i class="fas fa-history"></i>
+            </div>
+            <div>
+              <span class="text-[9px] text-slate-500 block font-medium leading-none">${log.timestamp}</span>
+              <span class="text-[11px] text-slate-200 font-semibold mt-1 inline-block">Active Reading</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-black text-cyan-400 block">${log.reading.toLocaleString()} kWh</span>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // ================= INTERACTIVE OCR SIMULATION / CAMERA =================
+    function openScanner(mode = 'monthly') {
+      if (!activeSubscriber) return;
+      scannerMode = mode;
+
+      document.getElementById('prev-target-label').innerText = `Prev: ${activeSubscriber.prevReading} kWh`;
+      switchView('view-scanner');
+
+      // Randomize initial digit visualizer slots in viewfinder
+      for (let i = 1; i <= 5; i++) {
+        document.getElementById(`ocr-digit-${i}`).innerText = Math.floor(Math.random() * 10);
+      }
+
+      // Try actual camera access first
+      const video = document.getElementById('camera-feed');
+      const fallback = document.getElementById('camera-fallback');
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+          .then(stream => {
+            cameraStream = stream;
+            video.srcObject = stream;
+            video.classList.remove('opacity-0');
+            fallback.classList.add('hidden');
+          })
+          .catch(err => {
+            console.log("Camera access not allowed or unavailable. Operating with interactive UI fallback.");
+            video.classList.add('opacity-0');
+            fallback.classList.remove('hidden');
+          });
+      } else {
+        video.classList.add('opacity-0');
+        fallback.classList.remove('hidden');
+      }
+    }
+
+    function closeScanner() {
+      stopCamera();
+      switchView('view-detail');
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+    }
+
+    // Auto Scan Event Trigger simulation
+    function triggerSimulatedScan() {
+      if (!activeSubscriber) return;
+
+      // Animate digits rapid spinning
+      let spins = 15;
+      const spinInterval = setInterval(() => {
+        for (let i = 1; i <= 5; i++) {
+          document.getElementById(`ocr-digit-${i}`).innerText = Math.floor(Math.random() * 10);
+        }
+        spins--;
+        if (spins <= 0) {
+          clearInterval(spinInterval);
+          
+          // Generate realistic current reading higher than previous reading (adding 100 to 500 kWh)
+          const finalReading = activeSubscriber.prevReading + Math.floor(Math.random() * 350) + 80;
+          
+          // Render final values into viewfinder
+          const strVal = String(finalReading).padStart(5, '0');
+          for (let i = 0; i < 5; i++) {
+            document.getElementById(`ocr-digit-${i+1}`).innerText = strVal[i];
+          }
+
+          // Complete scan flow
+          setTimeout(() => {
+            stopCamera();
+            applySuccessfulScan(finalReading);
+          }, 600);
+        }
+      }, 80);
+    }
+
+    // Fallback Manual Override
+    function applyManualReading() {
+      const inputVal = parseInt(document.getElementById('manual-ocr-input').value);
+      if (!inputVal || isNaN(inputVal)) {
+        showModal("Invalid Value", "Please enter a valid numeric current electric reading.", "fa-triangle-exclamation", "text-amber-500");
+        return;
+      }
+      if (inputVal < activeSubscriber.prevReading) {
+        showModal(
+          "Unusual Reading", 
+          `The inputted reading (${inputVal} kWh) is less than the previous reading (${activeSubscriber.prevReading} kWh). Please inspect the meter dials or override again.`, 
+          "fa-circle-exclamation", 
+          "text-rose-500"
+        );
+        return;
+      }
+
+      stopCamera();
+      applySuccessfulScan(inputVal);
+      document.getElementById('manual-ocr-input').value = '';
+    }
+
+    // Finalize Calculation after any valid reading input source
+    function applySuccessfulScan(readingValue) {
+      if (scannerMode === 'daily') {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const timestampString = `${dateStr}, ${timeStr}`;
+
+        if (!activeSubscriber.dailyReadings) {
+          activeSubscriber.dailyReadings = [];
+        }
+
+        activeSubscriber.dailyReadings.push({
+          timestamp: timestampString,
+          reading: readingValue
+        });
+
+        showModal(
+          "Daily Log Added", 
+          `Daily sub-reading of ${readingValue} kWh was recorded successfully for ${activeSubscriber.name}.`, 
+          "fa-calendar-check", 
+          "text-cyan-400",
+          () => {
+            switchView('view-detail');
+            renderDailyReadings();
+          }
+        );
+      } else {
+        showModal(
+          "Meter Verified!", 
+          `Successfully compiled reading of ${readingValue} kWh. Compiling bills and calculations now...`, 
+          "fa-square-check", 
+          "text-cyan-400", 
+          () => {
+            switchView('view-detail');
+            displayCalculation(readingValue);
+            
+            // Enable Submission Action
+            document.getElementById('scan-trigger-btn').classList.add('hidden');
+            document.getElementById('submit-reading-btn').classList.remove('hidden');
+          }
+        );
+      }
+    }
+
+    // Calculation View Updates
+    function displayCalculation(currentVal) {
+      if (!activeSubscriber) return;
+
+      const dateStr = activeSubscriber.currentReadingDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      document.getElementById('detail-current-date-header').innerText = dateStr;
+
+      // Swap view placeholders
+      document.getElementById('no-reading-placeholder').classList.add('hidden');
+      const sumBox = document.getElementById('reading-summary');
+      sumBox.classList.remove('hidden');
+
+      // Calculate figures
+      const prevVal = activeSubscriber.prevReading;
+      const netConsumption = currentVal - prevVal;
+      const totalCost = netConsumption * ELECTRIC_RATE_PER_KWH;
+
+      // Bind text contents
+      document.getElementById('summary-curr-reading').innerText = `${currentVal.toLocaleString()} kWh`;
+      document.getElementById('summary-consumption').innerText = `${netConsumption.toLocaleString()} kWh`;
+      document.getElementById('summary-bill-amount').innerText = `₱${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      // Cache current input inside temporary subscriber context
+      activeSubscriber.tempCurrentReading = currentVal;
+      activeSubscriber.tempCurrentDate = dateStr;
+    }
+
+    // Finalize Submission
+    function submitCurrentReading() {
+      if (!activeSubscriber) return;
+
+      // Commit temporary state to official record database
+      activeSubscriber.currentReading = activeSubscriber.tempCurrentReading;
+      activeSubscriber.currentReadingDate = activeSubscriber.tempCurrentDate;
+      activeSubscriber.status = 'completed';
+
+      showModal(
+        "Billing Completed", 
+        `NEO Subscriber Profile for ${activeSubscriber.name} has been submitted successfully.`, 
+        "fa-circle-nodes", 
+        "text-emerald-500", 
+        () => {
+          renderSubscribers();
+          switchView('view-list');
+        }
+      );
+    }
+
+    // ================= CUSTOM MODAL POPUP SYSTEM =================
+    let modalCallback = null;
+
+    function showModal(title, msg, iconClass = "fa-circle-info", iconColor = "text-cyan-500", callback = null) {
+      document.getElementById('modal-title').innerText = title;
+      document.getElementById('modal-message').innerText = msg;
+      
+      const iconContainer = document.getElementById('modal-icon-container');
+      iconContainer.className = `w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl bg-slate-950 ${iconColor}`;
+      iconContainer.innerHTML = `<i class="fas ${iconClass}"></i>`;
+
+      modalCallback = callback;
+      document.getElementById('custom-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('custom-modal').classList.add('hidden');
+      if (modalCallback) {
+        modalCallback();
+        modalCallback = null;
+      }
+    }
+  </script>
+</body>
+</html>
